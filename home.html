@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Tokera</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+background:#111;
+color:white;
+padding-bottom:70px;
+}
+
+/* TOPBAR */
+#topbar{
+background:#1a1a1a;
+padding:15px;
+display:flex;
+justify-content:space-between;
+}
+
+/* CONTENT */
+#content{
+padding:20px;
+text-align:center;
+}
+
+/* DOWNBAR */
+#downbar{
+position:fixed;
+bottom:0;
+width:100%;
+background:#1a1a1a;
+display:flex;
+justify-content:space-around;
+padding:10px 0;
+}
+
+.downbtn{
+cursor:pointer;
+}
+
+.userCard{
+background:#222;
+margin:10px;
+padding:12px;
+border-radius:8px;
+cursor:pointer;
+}
+.online{color:#00ff88;}
+.offline{color:#888;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+<div>tokera</div>
+<div>
+<span id="ticket">🎟️ 0</span>
+<span id="usernameTop"></span>
+</div>
+</div>
+
+<div id="content">
+<h2 id="status">Carregando...</h2>
+<div id="page"></div>
+</div>
+
+<div id="downbar">
+<div class="downbtn" onclick="goHome()">Home</div>
+<div class="downbtn" onclick="openUsers()">Users</div>
+<div class="downbtn" onclick="openShop()">Shop</div>
+</div>
+
+<script type="module">
+
+/* ========= FIREBASE ========= */
+
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import {
+getAuth,
+signInWithEmailAndPassword,
+createUserWithEmailAndPassword
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+getDatabase,
+ref,
+get,
+set,
+update,
+onValue,
+onDisconnect
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+
+const firebaseConfig={
+apiKey:"AIzaSyBzWOV7rpIQTB43cJtJMOuSazm6KxfMQP4",
+authDomain:"tokera-2244b.firebaseapp.com",
+databaseURL:"https://tokera-2244b-default-rtdb.firebaseio.com",
+projectId:"tokera-2244b",
+storageBucket:"tokera-2244b.firebasestorage.app",
+messagingSenderId:"516093605358",
+appId:"1:516093605358:web:56b055ec770a9e93270aff"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+
+/* ========= ELEMENTOS ========= */
+
+const status=document.getElementById("status");
+const page=document.getElementById("page");
+const usernameTop=document.getElementById("usernameTop");
+const ticketUI=document.getElementById("ticket");
+
+let usuarioAtual=null;
+
+
+/* ========= AUTO LOGIN ========= */
+
+const savedUser=localStorage.getItem("username");
+
+if(savedUser){
+entrarSistema(savedUser);
+}else{
+mostrarLogin();
+}
+
+
+/* ========= LOGIN ========= */
+
+function mostrarLogin(){
+
+status.innerText="Login";
+
+page.innerHTML=`
+<div class="userCard">
+<h2>Entrar no Tokera</h2>
+<input id="usuario" placeholder="Usuário"><br>
+<input id="senha" type="password" placeholder="Senha"><br>
+<button onclick="login()">Entrar</button>
+</div>`;
+}
+
+window.login=async function(){
+
+const usuario=document.getElementById("usuario").value.trim();
+const senha=document.getElementById("senha").value;
+const emailFake=usuario+"@tokera.app";
+
+try{
+await signInWithEmailAndPassword(auth,emailFake,senha);
+entrarSistema(usuario);
+
+}catch{
+
+await createUserWithEmailAndPassword(auth,emailFake,senha);
+
+await set(ref(db,"usuarios/"+usuario),{
+ticket:0,
+ultimoBonus:0,
+criadoEm:new Date().toLocaleDateString(),
+online:true
+});
+
+entrarSistema(usuario);
+}
+}
+
+
+/* ========= ONLINE SYSTEM ========= */
+
+function ativarOnline(usuario){
+
+const onlineRef=ref(db,"usuarios/"+usuario+"/online");
+
+// fica online
+set(onlineRef,true);
+
+// quando desconectar → offline automático
+onDisconnect(onlineRef).set(false);
+}
+
+
+/* ========= ENTRAR ========= */
+
+async function entrarSistema(usuario){
+
+usuarioAtual=usuario;
+localStorage.setItem("username",usuario);
+
+usernameTop.innerText=" "+usuario;
+status.innerText="";
+
+ativarOnline(usuario);
+
+await sistemaTicket(usuario);
+goHome();
+}
+
+
+/* ========= TICKETS ========= */
+
+async function sistemaTicket(usuario){
+
+const userRef=ref(db,"usuarios/"+usuario);
+const snap=await get(userRef);
+const dados=snap.val();
+
+let tickets=dados.ticket||0;
+let ultimoBonus=dados.ultimoBonus||0;
+
+const hoje=new Date().toDateString();
+
+if(ultimoBonus!==hoje){
+
+tickets+=5;
+
+await update(userRef,{
+ticket:tickets,
+ultimoBonus:hoje
+});
+
+alert("+5 Tickets!");
+}
+
+ticketUI.innerText="🎟️ "+tickets;
+}
+
+
+/* ========= HOME ========= */
+
+window.goHome=function(){
+status.innerText="";
+page.innerHTML=`<h2>Home</h2><p>Bem-vindo ao Tokera!</p>`;
+}
+
+
+/* ========= USERS (REALTIME) ========= */
+
+window.openUsers=function(){
+
+status.innerText="Users";
+
+const usersRef=ref(db,"usuarios");
+
+onValue(usersRef,(snap)=>{
+
+const users=snap.val();
+
+let html="<h2>Users</h2>";
+
+for(const nome in users){
+
+const online=users[nome].online;
+
+html+=`
+<div class="userCard" onclick="verUser('${nome}')">
+${nome}
+<span class="${online?'online':'offline'}">
+(${online?'Online':'Offline'})
+</span>
+</div>`;
+}
+
+page.innerHTML=html;
+
+});
+}
+
+
+/* ========= PERFIL ========= */
+
+window.verUser=async function(nome){
+
+const snap=await get(ref(db,"usuarios/"+nome));
+const dados=snap.val();
+
+page.innerHTML=`
+<h2>${nome}</h2>
+<br>
+<p>Categoria de itens: Nenhum ainda</p>
+<p>Entrou em: ${dados.criadoEm}</p>
+<button onclick="openUsers()">⬅ Voltar</button>
+`;
+}
+
+
+/* ========= SHOP ========= */
+
+window.openShop=function(){
+
+status.innerText="Shop";
+
+page.innerHTML=`
+<h2>Shop</h2>
+<p>Nenhum item ainda...</p>`;
+}
+
+</script>
+</body>
+</html>
