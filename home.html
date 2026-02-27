@@ -1,25 +1,23 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>tokera</title>
 
-<!-- PWA -->
-<link rel="manifest" href="manifest.json">
-
 <style>
 
-/* ===== BODY ===== */
+/* BODY */
 body{
 margin:0;
 background:#111;
 color:white;
-font-family:Arial;
+font-family:Arial, sans-serif;
 }
 
-/* ===== TOPBAR ===== */
+/* TOPBAR */
 #topbar{
 background:#1a1a1a;
 padding:12px;
@@ -32,9 +30,222 @@ align-items:center;
 color:#ff5555;
 }
 
-/* ===== CONTENT ===== */
+/* CONTENT */
 #content{
 padding:20px;
+text-align:center;
+margin-bottom:70px;
+}
+
+/* DOWNBAR */
+#downbar{
+position:fixed;
+bottom:0;
+width:100%;
+background:#1a1a1a;
+display:flex;
+justify-content:space-around;
+padding:12px 0;
+}
+
+.downbtn{
+cursor:pointer;
+}
+
+/* USER CARD */
+.userCard{
+background:#222;
+margin:10px;
+padding:14px;
+border-radius:8px;
+cursor:pointer;
+}
+
+.online{color:#00ff88;}
+.offline{color:#888;}
+
+/* MOBILE */
+.mobile body{
+font-size:18px;
+}
+
+.mobile input{
+padding:14px;
+font-size:18px;
+width:90%;
+}
+
+.mobile button{
+padding:14px;
+font-size:18px;
+width:100%;
+margin-top:10px;
+}
+
+</style>
+
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+<div>tokera</div>
+<div id="userInfo">...</div>
+</div>
+
+<!-- CONTENT -->
+<div id="content">Carregando...</div>
+
+<!-- DOWNBAR -->
+<div id="downbar">
+<div class="downbtn" onclick="goHome()">Home</div>
+<div class="downbtn" onclick="openUsers()">Users</div>
+<div class="downbtn" onclick="openFriends()">Friends</div>
+<div class="downbtn" onclick="openShop()">Shop</div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import {
+getDatabase, ref, get, set, update, onValue, onDisconnect
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* FIREBASE */
+const firebaseConfig = {
+apiKey:"AIzaSyBzWOV7rpIQTB43cJtJMOuSazm6KxfMQP4",
+authDomain:"tokera-2244b.firebaseapp.com",
+databaseURL:"https://tokera-2244b-default-rtdb.firebaseio.com",
+projectId:"tokera-2244b",
+storageBucket:"tokera-2244b.firebasestorage.app",
+messagingSenderId:"516093605358",
+appId:"1:516093605358:web:56b055ec770a9e93270aff"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const content = document.getElementById("content");
+const userInfo = document.getElementById("userInfo");
+
+/* MOBILE MODE */
+if(window.innerWidth < 700){
+document.documentElement.classList.add("mobile");
+}
+
+/* LOGIN */
+let usuarioAtual = localStorage.getItem("usuario");
+
+if(!usuarioAtual){
+mostrarLogin();
+}else{
+startApp();
+}
+
+function mostrarLogin(){
+content.innerHTML = `
+<h2>Login</h2>
+<input id="nome" placeholder="Usuário"><br><br>
+<input id="senha" type="password" placeholder="Senha"><br>
+<button onclick="login()">Entrar</button>
+`;
+}
+
+window.login = async function(){
+
+const nome = document.getElementById("nome").value;
+const senha = document.getElementById("senha").value;
+
+if(!nome || !senha) return alert("Preencha tudo");
+
+const userRef = ref(db,"usuarios/"+nome);
+const snap = await get(userRef);
+
+if(snap.exists()){
+if(snap.val().senha !== senha){
+alert("Senha errada");
+return;
+}
+}else{
+await set(userRef,{
+senha:senha,
+ticket:0,
+online:true,
+criadoEm:new Date().toLocaleDateString(),
+amigos:{}
+});
+}
+
+localStorage.setItem("usuario",nome);
+usuarioAtual = nome;
+startApp();
+};
+
+/* START */
+async function startApp(){
+
+const onlineRef = ref(db,"usuarios/"+usuarioAtual+"/online");
+
+await set(onlineRef,true);
+onDisconnect(onlineRef).set(false);
+
+onValue(ref(db,"usuarios/"+usuarioAtual),(snap)=>{
+const d = snap.val();
+userInfo.innerHTML =
+`<span class="ticket">🎟 ${d.ticket}</span> ${usuarioAtual}`;
+});
+
+goHome();
+}
+
+/* HOME */
+window.goHome = function(){
+content.innerHTML = `
+<h1>Home</h1>
+<p>Bem-vindo ao Tokera</p>
+`;
+};
+
+/* USERS */
+window.openUsers = function(){
+
+onValue(ref(db,"usuarios"),(snap)=>{
+
+let html="<h2>Users</h2>";
+
+snap.forEach(u=>{
+const d=u.val();
+
+html+=`
+<div class="userCard">
+${u.key}
+<span class="${d.online?'online':'offline'}">
+(${d.online?'On-line':'Off-line'})
+</span>
+</div>`;
+});
+
+content.innerHTML=html;
+});
+};
+
+/* FRIENDS */
+window.openFriends=function(){
+content.innerHTML="<h2>Amigos</h2>";
+};
+
+/* SHOP */
+window.openShop=function(){
+content.innerHTML="<h2>Shop</h2><p>Sem itens ainda</p>";
+};
+
+</script>
+
+</body>
+</html>padding:20px;
 text-align:center;
 margin-bottom:70px;
 }
