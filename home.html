@@ -3,20 +3,15 @@
 <head>
 
 <meta charset="UTF-8">
-
-<!-- MOBILE REAL -->
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 <title>Tokera</title>
 
-<!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#111111">
 
 <style>
-
-/* BASE */
 body{
 margin:0;
 font-family:Arial;
@@ -25,7 +20,6 @@ color:white;
 padding-bottom:70px;
 }
 
-/* TOPBAR */
 #topbar{
 background:#1a1a1a;
 padding:15px;
@@ -33,8 +27,312 @@ display:flex;
 justify-content:space-between;
 }
 
-/* CONTENT */
 #content{
+padding:20px;
+text-align:center;
+}
+
+#downbar{
+position:fixed;
+bottom:0;
+width:100%;
+background:#1a1a1a;
+display:flex;
+justify-content:space-around;
+padding:12px 0;
+}
+
+.downbtn{cursor:pointer;}
+
+.userCard{
+background:#222;
+margin:10px;
+padding:14px;
+border-radius:8px;
+cursor:pointer;
+}
+
+.online{color:#00ff88;}
+.offline{color:#888;}
+
+.mobile body{font-size:18px;}
+.mobile .userCard{padding:18px;font-size:18px;}
+.mobile button{width:100%;padding:14px;font-size:18px;}
+.mobile input{padding:14px;font-size:18px;width:90%;}
+</style>
+</head>
+
+<body>
+
+<div id="topbar">
+<div>tokera</div>
+<div>
+<span id="ticket">🎟 0</span>
+<span id="usernameTop"></span>
+</div>
+</div>
+
+<div id="content">
+<h2 id="status">Carregando...</h2>
+<div id="page"></div>
+</div>
+
+<div id="downbar">
+<div class="downbtn" onclick="goHome()">Home</div>
+<div class="downbtn" onclick="openUsers()">Users</div>
+<div class="downbtn" onclick="openShop()">Shop</div>
+</div>
+
+<script type="module">
+
+/* MOBILE MODE */
+if(/Android|iPhone|iPad/i.test(navigator.userAgent)){
+document.documentElement.classList.add("mobile");
+}
+
+/* SERVICE WORKER */
+if("serviceWorker" in navigator){
+navigator.serviceWorker.register("./sw.js");
+}
+
+/* FIREBASE */
+
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import {
+getAuth,
+signInWithEmailAndPassword,
+createUserWithEmailAndPassword
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+getDatabase,
+ref,
+get,
+set,
+update,
+onValue,
+onDisconnect
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig={
+apiKey:"AIzaSyBzWOV7rpIQTB43cJtJMOuSazm6KxfMQP4",
+authDomain:"tokera-2244b.firebaseapp.com",
+databaseURL:"https://tokera-2244b-default-rtdb.firebaseio.com",
+projectId:"tokera-2244b",
+storageBucket:"tokera-2244b.firebasestorage.app",
+messagingSenderId:"516093605358",
+appId:"1:516093605358:web:56b055ec770a9e93270aff"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+const status=document.getElementById("status");
+const page=document.getElementById("page");
+const usernameTop=document.getElementById("usernameTop");
+const ticketUI=document.getElementById("ticket");
+
+let usuarioAtual=null;
+
+
+/* AUTO LOGIN */
+const savedUser=localStorage.getItem("username");
+savedUser ? entrarSistema(savedUser) : mostrarLogin();
+
+
+/* LOGIN */
+function mostrarLogin(){
+status.innerText="Login";
+page.innerHTML=`
+<div class="userCard">
+<h2>Entrar</h2>
+<input id="usuario" placeholder="Usuário"><br>
+<input id="senha" type="password" placeholder="Senha"><br>
+<button onclick="login()">Entrar</button>
+</div>`;
+}
+
+window.login=async function(){
+
+const usuario=document.getElementById("usuario").value.trim();
+const senha=document.getElementById("senha").value;
+const emailFake=usuario+"@tokera.app";
+
+try{
+await signInWithEmailAndPassword(auth,emailFake,senha);
+entrarSistema(usuario);
+}catch{
+
+await createUserWithEmailAndPassword(auth,emailFake,senha);
+
+await set(ref(db,"usuarios/"+usuario),{
+ticket:0,
+ultimoBonus:0,
+criadoEm:new Date().toLocaleDateString(),
+online:true,
+amigos:{}
+});
+
+entrarSistema(usuario);
+}
+};
+
+
+/* ONLINE */
+function ativarOnline(usuario){
+const onlineRef=ref(db,"usuarios/"+usuario+"/online");
+set(onlineRef,true);
+onDisconnect(onlineRef).set(false);
+}
+
+
+/* ENTRAR */
+async function entrarSistema(usuario){
+
+usuarioAtual=usuario;
+localStorage.setItem("username",usuario);
+
+usernameTop.innerText=" "+usuario;
+status.innerText="";
+
+ativarOnline(usuario);
+await sistemaTicket(usuario);
+goHome();
+}
+
+
+/* TICKET */
+async function sistemaTicket(usuario){
+
+const snap=await get(ref(db,"usuarios/"+usuario));
+const dados=snap.val();
+
+let tickets=dados.ticket||0;
+let ultimoBonus=dados.ultimoBonus||0;
+
+const hoje=new Date().toDateString();
+
+if(ultimoBonus!==hoje){
+tickets+=5;
+await update(ref(db,"usuarios/"+usuario),{
+ticket:tickets,
+ultimoBonus:hoje
+});
+}
+
+ticketUI.innerText="🎟 "+tickets;
+}
+
+
+/* HOME + AMIGOS */
+window.goHome=function(){
+
+status.innerText="Home";
+
+onValue(ref(db,"usuarios/"+usuarioAtual+"/amigos"),async snap=>{
+
+const amigos=snap.val();
+
+let html="<h2>Amigos</h2>";
+
+if(!amigos){
+html+="<p>Nenhum amigo ainda</p>";
+page.innerHTML=html;
+return;
+}
+
+for(const nome in amigos){
+
+const userSnap=await get(ref(db,"usuarios/"+nome));
+const dados=userSnap.val();
+
+html+=`
+<div class="userCard">
+${nome}
+<span class="${dados.online?'online':'offline'}">
+(${dados.online?'Online':'Offline'})
+</span>
+</div>`;
+}
+
+page.innerHTML=html;
+
+});
+};
+
+
+/* USERS LIST */
+window.openUsers=function(){
+
+status.innerText="Users";
+
+onValue(ref(db,"usuarios"),snap=>{
+
+const users=snap.val();
+let html="<h2>Users</h2>";
+
+for(const nome in users){
+
+if(nome===usuarioAtual) continue;
+
+const online=users[nome].online;
+
+html+=`
+<div class="userCard" onclick="verUser('${nome}')">
+${nome}
+<span class="${online?'online':'offline'}">
+(${online?'Online':'Offline'})
+</span>
+</div>`;
+}
+
+page.innerHTML=html;
+});
+};
+
+
+/* PERFIL + ADD FRIEND */
+window.verUser=async function(nome){
+
+const snap=await get(ref(db,"usuarios/"+nome));
+const dados=snap.val();
+
+page.innerHTML=`
+<h2>${nome}</h2>
+<p>Entrou em: ${dados.criadoEm}</p>
+<button onclick="addFriend('${nome}')">Adicionar amigo</button>
+<button onclick="openUsers()">Voltar</button>
+`;
+};
+
+
+/* ADD FRIEND */
+window.addFriend=async function(nome){
+
+await update(
+ref(db,"usuarios/"+usuarioAtual+"/amigos"),
+{ [nome]: true }
+);
+
+alert("Amigo adicionado!");
+goHome();
+};
+
+
+/* SHOP */
+window.openShop=function(){
+status.innerText="Shop";
+page.innerHTML="<h2>Shop</h2><p>Sem itens ainda</p>";
+};
+
+</script>
+</body>
+</html>#content{
 padding:20px;
 text-align:center;
 }
