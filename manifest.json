@@ -4,7 +4,7 @@
   "description": "Tokera is a gaming platform where you can make friends and play games!",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
