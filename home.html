@@ -6,10 +6,9 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 
-<title>tokera</title>
+<title>Tokera</title>
 
 <style>
-
 body{
 margin:0;
 background:#111;
@@ -17,6 +16,7 @@ color:white;
 font-family:Arial;
 }
 
+/* TOP BAR */
 #topbar{
 background:#1a1a1a;
 padding:12px;
@@ -25,16 +25,16 @@ justify-content:space-between;
 align-items:center;
 }
 
-.ticket{
-color:#ff5555;
-}
+.ticket{color:#ff5555;}
 
+/* CONTENT */
 #content{
 padding:20px;
 text-align:center;
-margin-bottom:70px;
+margin-bottom:80px;
 }
 
+/* DOWN BAR */
 #downbar{
 position:fixed;
 bottom:0;
@@ -45,10 +45,9 @@ justify-content:space-around;
 padding:12px 0;
 }
 
-.downbtn{
-cursor:pointer;
-}
+.downbtn{cursor:pointer;}
 
+/* USERS */
 .userCard{
 background:#222;
 margin:10px;
@@ -59,28 +58,66 @@ border-radius:8px;
 .online{color:#00ff88;}
 .offline{color:#888;}
 
-.mobile body{font-size:18px;}
+/* GAMES */
+.gamesGrid{
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+gap:14px;
+margin-top:20px;
+}
 
+.gameCard{
+background:#222;
+border-radius:10px;
+padding:12px;
+text-align:center;
+}
+
+.gameIcon{
+width:80px;
+height:80px;
+border-radius:16px;
+object-fit:cover;
+margin-bottom:8px;
+}
+
+.gameName{
+font-size:16px;
+margin-bottom:8px;
+}
+
+.playBtn{
+background:#00ff88;
+border:none;
+border-radius:6px;
+padding:8px;
+font-size:14px;
+cursor:pointer;
+width:100%;
+}
+
+.playBtn:hover{opacity:0.85;}
+
+/* MOBILE */
+.mobile body{font-size:18px;}
 .mobile button{
 width:100%;
 padding:14px;
 margin-top:10px;
 font-size:18px;
 }
-
 .mobile input{
 width:90%;
 padding:14px;
 font-size:18px;
 }
-
 </style>
 </head>
 
 <body>
 
 <div id="topbar">
-<div>tokera</div>
+<div>Tokera</div>
 <div id="userInfo">...</div>
 </div>
 
@@ -94,14 +131,10 @@ font-size:18px;
 </div>
 
 <script type="module">
-
-import { initializeApp } from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
 getDatabase,ref,get,set,update,onValue,onDisconnect
-} from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 /* FIREBASE */
 const firebaseConfig={
@@ -144,7 +177,6 @@ content.innerHTML=`
 }
 
 window.login=async function(){
-
 const nome=document.getElementById("nome").value.trim().toLowerCase();
 const senha=document.getElementById("senha").value.trim();
 
@@ -160,7 +192,7 @@ return;
 }
 }else{
 await set(userRef,{
-senha:senha,
+senha,
 ticket:0,
 online:true,
 criadoEm:new Date().toLocaleDateString(),
@@ -173,11 +205,9 @@ usuarioAtual=nome;
 startApp();
 };
 
-/* START APP */
+/* START */
 async function startApp(){
-
 const onlineRef=ref(db,"usuarios/"+usuarioAtual+"/online");
-
 await set(onlineRef,true);
 onDisconnect(onlineRef).set(false);
 
@@ -185,8 +215,7 @@ dailyTicket();
 
 onValue(ref(db,"usuarios/"+usuarioAtual),(snap)=>{
 const d=snap.val();
-userInfo.innerHTML=
-`<span class="ticket">🎟 ${d.ticket}</span> ${usuarioAtual}`;
+userInfo.innerHTML=`<span class="ticket">🎟 ${d.ticket}</span> ${usuarioAtual}`;
 });
 
 goHome();
@@ -194,93 +223,71 @@ goHome();
 
 /* DAILY TICKET */
 async function dailyTicket(){
-
 const hoje=new Date().toDateString();
-const ultimo=localStorage.getItem("lastTicket");
-
-if(hoje===ultimo)return;
+if(localStorage.getItem("lastTicket")===hoje)return;
 
 const userRef=ref(db,"usuarios/"+usuarioAtual);
 const snap=await get(userRef);
-
-let t=snap.val().ticket||0;
-
-await update(userRef,{ticket:t+1});
+await update(userRef,{ticket:(snap.val().ticket||0)+1});
 localStorage.setItem("lastTicket",hoje);
 }
 
-/* HOME */
+/* HOME COM JOGOS */
 window.goHome=function(){
-content.innerHTML="<h1>Home</h1><p>Bem-vindo ao Tokera</p>";
+content.innerHTML=`
+<h1>Home</h1>
+<p>Jogos disponíveis</p>
+
+<div class="gamesGrid">
+
+<div class="gameCard">
+<img class="gameIcon" src="https://i.imgur.com/5ZQ0Z0p.png">
+<div class="gameName">Paper.io</div>
+<button class="playBtn" onclick="window.open('paper.io','_blank')">▶ Play</button>
+</div>
+
+</div>
+`;
 };
 
 /* USERS */
 window.openUsers=function(){
-
 onValue(ref(db,"usuarios"),(snap)=>{
-
 let html="<h2>Users</h2>";
-
 snap.forEach(userSnap=>{
-
 const nome=userSnap.key;
-const dados=userSnap.val();
-
 if(nome===usuarioAtual)return;
-
-const status=dados.online?"On-line":"Off-line";
-const classe=dados.online?"online":"offline";
-
+const d=userSnap.val();
 html+=`
 <div class="userCard">
-
-<div>
 <b>${nome}</b>
-<span class="${classe}">(${status})</span>
-</div>
-
-<button onclick="addFriend('${nome}')">
-Adicionar amigo
-</button>
-
-</div>
-`;
+<span class="${d.online?'online':'offline'}">
+(${d.online?'On-line':'Off-line'})
+</span><br>
+<button onclick="addFriend('${nome}')">Adicionar amigo</button>
+</div>`;
 });
-
 content.innerHTML=html;
 });
 };
 
 /* ADD FRIEND */
 window.addFriend=async function(nome){
-
-await set(
-ref(db,"usuarios/"+usuarioAtual+"/amigos/"+nome),
-true
-);
-
+await set(ref(db,"usuarios/"+usuarioAtual+"/amigos/"+nome),true);
 alert("Amigo adicionado!");
 };
 
-/* FRIENDS LIST */
+/* FRIENDS */
 window.openFriends=function(){
-
-onValue(
-ref(db,"usuarios/"+usuarioAtual+"/amigos"),
-async(snap)=>{
-
+onValue(ref(db,"usuarios/"+usuarioAtual+"/amigos"),async(snap)=>{
 let html="<h2>Amigos</h2>";
-
 if(!snap.exists()){
 content.innerHTML=html+"<p>Nenhum amigo</p>";
 return;
 }
-
 for(const nome in snap.val()){
-
 const u=await get(ref(db,"usuarios/"+nome));
 const d=u.val();
-
 html+=`
 <div class="userCard">
 ${nome}
@@ -289,7 +296,6 @@ ${nome}
 </span>
 </div>`;
 }
-
 content.innerHTML=html;
 });
 };
@@ -298,7 +304,6 @@ content.innerHTML=html;
 window.openShop=function(){
 content.innerHTML="<h2>Shop</h2><p>Nenhum item ainda</p>";
 };
-
 </script>
 
 </body>
