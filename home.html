@@ -55,6 +55,7 @@ padding:14px;
 border-radius:8px;
 }
 
+/* STATUS */
 .online{color:#00ff88;}
 .offline{color:#888;}
 
@@ -76,13 +77,8 @@ text-align:center;
 .gameIcon{
 width:80px;
 height:80px;
-border-radius:50%;
+border-radius:16px;
 object-fit:cover;
-margin-bottom:8px;
-}
-
-.gameName{
-font-size:16px;
 margin-bottom:8px;
 }
 
@@ -200,7 +196,7 @@ dailyTicket();
 onValue(ref(db,"usuarios/"+usuarioAtual),(snap)=>{
 const d=snap.val();
 
-if(d.PFP === undefined){
+if(d.PFP===undefined){
 update(ref(db,"usuarios/"+usuarioAtual),{PFP:0});
 }
 
@@ -234,6 +230,22 @@ window.goHome=function(){
 content.innerHTML=`
 <h1>Home</h1>
 <p>Jogos disponíveis</p>
+
+<div class="gamesGrid">
+
+<div class="gameCard">
+<img class="gameIcon" src="https://play-lh.googleusercontent.com/SWTpYqsX9RN2YirCDnAjQ8qsbgn4UrHkRRGsjwuASnHMVqssIvWKzq82mP82y_ffBSE">
+<p>Paper.io</p>
+<button class="playBtn" onclick="window.open('https://games.voodoo.io/paperio2/')">▶ Play</button>
+</div>
+
+<div class="gameCard">
+<img class="gameIcon" src="https://upload.wikimedia.org/wikipedia/en/c/ca/Hole.io_logo.jpg">
+<p>Hole.io</p>
+<button class="playBtn" onclick="window.open('https://holeio.com/')">▶ Play</button>
+</div>
+
+</div>
 `;
 };
 
@@ -257,11 +269,18 @@ ${img}
 <b>${nome}</b>
 <span class="${d.online?'online':'offline'}">
 (${d.online?'On-line':'Off-line'})
-</span>
+</span><br><br>
+<button onclick="addFriend('${nome}')">Adicionar amigo</button>
 </div>`;
 });
 content.innerHTML=html;
 });
+};
+
+/* ADD FRIEND */
+window.addFriend=async function(nome){
+await set(ref(db,"usuarios/"+usuarioAtual+"/amigos/"+nome),true);
+alert("Amigo adicionado!");
 };
 
 /* FRIENDS */
@@ -305,7 +324,7 @@ content.innerHTML=`
 
 <div class="gameCard">
 <img class="gameIcon" src="https://avatars.githubusercontent.com/u/2505495?v=4">
-<div class="gameName">Gatinho na Cama</div>
+<p>Gatinho na Cama</p>
 <p>Custo: 🎟 1</p>
 
 <button class="playBtn"
@@ -322,7 +341,7 @@ const userRef=ref(db,"usuarios/"+usuarioAtual);
 const snap=await get(userRef);
 const d=snap.val();
 
-if(d.ticket < 1){
+if(d.ticket<1){
 alert("Tickets insuficientes!");
 return;
 }
