@@ -1,8 +1,12 @@
 {
-  "name": "Tokera",
-  "short_name": "Tokera",
-  "start_url": "index.html",
+  "background_color": "#ffffff",
+  "dir": "ltr",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#111111"
+  "name": "Tokera",
+  "orientation": "portrait",
+  "scope": "/",
+  "short_name": "Tokera",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "id": "129"
 }
