@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
-
 <title>Tokera</title>
 
 <style>
@@ -47,12 +46,12 @@ padding:12px 0;
 
 .downbtn{cursor:pointer;}
 
-/* USERS */
-.userCard{
+/* CARDS */
+.userCard,.gameCard{
 background:#222;
 margin:10px;
 padding:14px;
-border-radius:8px;
+border-radius:10px;
 }
 
 /* STATUS */
@@ -65,13 +64,6 @@ display:grid;
 grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
 gap:14px;
 margin-top:20px;
-}
-
-.gameCard{
-background:#222;
-border-radius:10px;
-padding:12px;
-text-align:center;
 }
 
 .gameIcon{
@@ -87,13 +79,12 @@ background:#00ff88;
 border:none;
 border-radius:6px;
 padding:8px;
-font-size:14px;
 cursor:pointer;
 width:100%;
 }
 
 .playBtn:disabled{
-opacity:0.5;
+opacity:.5;
 cursor:not-allowed;
 }
 </style>
@@ -117,9 +108,8 @@ cursor:not-allowed;
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-getDatabase,ref,get,set,update,onValue,onDisconnect
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase,ref,get,set,update,onValue,onDisconnect }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 /* FIREBASE */
 const firebaseConfig={
@@ -141,17 +131,14 @@ const userInfo=document.getElementById("userInfo");
 /* LOGIN */
 let usuarioAtual=localStorage.getItem("usuario");
 
-if(!usuarioAtual){
-mostrarLogin();
-}else{
-startApp();
-}
+if(!usuarioAtual) mostrarLogin();
+else startApp();
 
 function mostrarLogin(){
 content.innerHTML=`
 <h2>Login</h2>
 <input id="nome" placeholder="Usuário"><br><br>
-<input id="senha" type="password" placeholder="Senha"><br>
+<input id="senha" type="password" placeholder="Senha"><br><br>
 <button onclick="login()">Entrar</button>
 `;
 }
@@ -159,25 +146,22 @@ content.innerHTML=`
 window.login=async function(){
 const nome=document.getElementById("nome").value.trim().toLowerCase();
 const senha=document.getElementById("senha").value.trim();
-
-if(!nome||!senha)return alert("Preencha tudo");
+if(!nome||!senha) return alert("Preencha tudo");
 
 const userRef=ref(db,"usuarios/"+nome);
 const snap=await get(userRef);
 
-if(snap.exists()){
-if((snap.val().senha||"")!==senha){
-alert("Senha errada");
-return;
-}
-}else{
+if(!snap.exists()){
 await set(userRef,{
 senha,
 ticket:0,
 online:true,
 PFP:0,
-amigos:{}
+amigos:{},
+presentes:{pendentes:0}
 });
+}else if(snap.val().senha!==senha){
+return alert("Senha errada");
 }
 
 localStorage.setItem("usuario",nome);
@@ -191,37 +175,49 @@ const onlineRef=ref(db,"usuarios/"+usuarioAtual+"/online");
 await set(onlineRef,true);
 onDisconnect(onlineRef).set(false);
 
+checkPresentes();
 dailyTicket();
 
 onValue(ref(db,"usuarios/"+usuarioAtual),(snap)=>{
 const d=snap.val();
-
-if(d.PFP===undefined){
-update(ref(db,"usuarios/"+usuarioAtual),{PFP:0});
-}
-
-const pfp = d.PFP==1
+const pfp=d.PFP==1
 ? `<img src="https://avatars.githubusercontent.com/u/2505495?v=4"
 style="width:32px;height:32px;border-radius:50%;vertical-align:middle;"> `
 : "";
 
-userInfo.innerHTML=`
-${pfp}
-<span class="ticket">🎟 ${d.ticket}</span> ${usuarioAtual}
-`;
+userInfo.innerHTML=`${pfp}<span class="ticket">🎟 ${d.ticket}</span> ${usuarioAtual}`;
 });
 
 goHome();
 }
 
+/* PRESENTES */
+async function checkPresentes(){
+const refUser=ref(db,"usuarios/"+usuarioAtual);
+const snap=await get(refUser);
+const d=snap.val();
+
+if(d.presentes?.pendentes>0){
+const qtd=d.presentes.pendentes;
+const ganho=qtd*5;
+
+alert(`🎁 Você recebeu ${qtd} presente(s)!\n+${ganho} tickets`);
+
+await update(refUser,{
+ticket:d.ticket+ganho,
+"presentes/pendentes":0
+});
+}
+}
+
 /* DAILY TICKET */
 async function dailyTicket(){
 const hoje=new Date().toDateString();
-if(localStorage.getItem("lastTicket")===hoje)return;
+if(localStorage.getItem("lastTicket")===hoje) return;
 
-const userRef=ref(db,"usuarios/"+usuarioAtual);
-const snap=await get(userRef);
-await update(userRef,{ticket:(snap.val().ticket||0)+1});
+const refUser=ref(db,"usuarios/"+usuarioAtual);
+const snap=await get(refUser);
+await update(refUser,{ticket:(snap.val().ticket||0)+1});
 localStorage.setItem("lastTicket",hoje);
 }
 
@@ -229,84 +225,83 @@ localStorage.setItem("lastTicket",hoje);
 window.goHome=function(){
 content.innerHTML=`
 <h1>Home</h1>
-<p>Jogos disponíveis</p>
-
 <div class="gamesGrid">
-
 <div class="gameCard">
 <img class="gameIcon" src="https://play-lh.googleusercontent.com/SWTpYqsX9RN2YirCDnAjQ8qsbgn4UrHkRRGsjwuASnHMVqssIvWKzq82mP82y_ffBSE">
 <p>Paper.io</p>
-<button class="playBtn" onclick="window.open('https://games.voodoo.io/paperio2/')">▶ Play</button>
+<button class="playBtn" onclick="window.open('https://games.voodoo.io/paperio2/')">Play</button>
 </div>
 
 <div class="gameCard">
 <img class="gameIcon" src="https://upload.wikimedia.org/wikipedia/en/c/ca/Hole.io_logo.jpg">
 <p>Hole.io</p>
-<button class="playBtn" onclick="window.open('https://holeio.com/')">▶ Play</button>
+<button class="playBtn" onclick="window.open('https://holeio.com/')">Play</button>
 </div>
-
 </div>
 `;
 };
 
 /* USERS */
 window.openUsers=function(){
-onValue(ref(db,"usuarios"),(snap)=>{
+onValue(ref(db,"usuarios"),snap=>{
 let html="<h2>Users</h2>";
-snap.forEach(userSnap=>{
-const nome=userSnap.key;
-if(nome===usuarioAtual)return;
-const d=userSnap.val();
+snap.forEach(u=>{
+const nome=u.key;
+if(nome===usuarioAtual) return;
+const d=u.val();
 
-const img = d.PFP==1
-? `<img src="https://avatars.githubusercontent.com/u/2505495?v=4"
-style="width:40px;height:40px;border-radius:50%;"><br>`
-: "";
+const img=d.PFP==1
+? `<img src="https://avatars.githubusercontent.com/u/2505495?v=4" width="40" style="border-radius:50%"><br>`
+:"";
 
 html+=`
 <div class="userCard">
 ${img}
 <b>${nome}</b>
-<span class="${d.online?'online':'offline'}">
-(${d.online?'On-line':'Off-line'})
-</span><br><br>
-<button onclick="addFriend('${nome}')">Adicionar amigo</button>
+<span class="${d.online?'online':'offline'}">(${d.online?'On':'Off'})</span><br><br>
+<button onclick="addFriend('${nome}')">Adicionar amigo</button><br><br>
+<button onclick="sendGift('${nome}')">🎁 Enviar presente (5 🎟)</button>
 </div>`;
 });
 content.innerHTML=html;
 });
 };
 
-/* ADD FRIEND */
 window.addFriend=async function(nome){
 await set(ref(db,"usuarios/"+usuarioAtual+"/amigos/"+nome),true);
 alert("Amigo adicionado!");
 };
 
+window.sendGift=async function(nome){
+const meRef=ref(db,"usuarios/"+usuarioAtual);
+const toRef=ref(db,"usuarios/"+nome);
+
+const me=(await get(meRef)).val();
+if(me.ticket<5) return alert("Você precisa de 5 tickets!");
+
+const to=(await get(toRef)).val();
+const pend=to.presentes?.pendentes||0;
+
+await update(meRef,{ticket:me.ticket-5});
+await update(toRef,{"presentes/pendentes":pend+1});
+
+alert("🎁 Presente enviado!");
+};
+
 /* FRIENDS */
 window.openFriends=function(){
-onValue(ref(db,"usuarios/"+usuarioAtual+"/amigos"),async(snap)=>{
+onValue(ref(db,"usuarios/"+usuarioAtual+"/amigos"),async snap=>{
 let html="<h2>Amigos</h2>";
 if(!snap.exists()){
 content.innerHTML=html+"<p>Nenhum amigo</p>";
 return;
 }
 for(const nome in snap.val()){
-const u=await get(ref(db,"usuarios/"+nome));
-const d=u.val();
-
-const img = d.PFP==1
-? `<img src="https://avatars.githubusercontent.com/u/2505495?v=4"
-style="width:40px;height:40px;border-radius:50%;"><br>`
-: "";
-
+const d=(await get(ref(db,"usuarios/"+nome))).val();
 html+=`
 <div class="userCard">
-${img}
 ${nome}
-<span class="${d.online?'online':'offline'}">
-(${d.online?'On-line':'Off-line'})
-</span>
+<span class="${d.online?'online':'offline'}">(${d.online?'On':'Off'})</span>
 </div>`;
 }
 content.innerHTML=html;
@@ -315,20 +310,15 @@ content.innerHTML=html;
 
 /* SHOP */
 window.openShop=async function(){
-const userRef=ref(db,"usuarios/"+usuarioAtual);
-const snap=await get(userRef);
-const d=snap.val();
+const d=(await get(ref(db,"usuarios/"+usuarioAtual))).val();
 
 content.innerHTML=`
 <h2>Shop</h2>
-
 <div class="gameCard">
 <img class="gameIcon" src="https://avatars.githubusercontent.com/u/2505495?v=4">
 <p>Gatinho na Cama</p>
 <p>Custo: 🎟 1</p>
-
-<button class="playBtn"
-${d.PFP==1?"disabled":""}
+<button class="playBtn" ${d.PFP==1?"disabled":""}
 onclick="comprarPFP()">
 ${d.PFP==1?"Equipado":"Comprar"}
 </button>
@@ -337,21 +327,13 @@ ${d.PFP==1?"Equipado":"Comprar"}
 };
 
 window.comprarPFP=async function(){
-const userRef=ref(db,"usuarios/"+usuarioAtual);
-const snap=await get(userRef);
-const d=snap.val();
+const refUser=ref(db,"usuarios/"+usuarioAtual);
+const d=(await get(refUser)).val();
 
-if(d.ticket<1){
-alert("Tickets insuficientes!");
-return;
-}
+if(d.ticket<1) return alert("Sem tickets");
 
-await update(userRef,{
-ticket:d.ticket-1,
-PFP:1
-});
-
-alert("Foto de perfil equipada!");
+await update(refUser,{ticket:d.ticket-1,PFP:1});
+alert("PFP equipado!");
 openShop();
 };
 </script>
