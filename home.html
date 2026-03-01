@@ -25,6 +25,7 @@ align-items:center;
 }
 
 .ticket{color:#ff5555;}
+.coin{color:#ffd700;}
 
 /* CONTENT */
 #content{
@@ -103,6 +104,7 @@ cursor:not-allowed;
 <div class="downbtn" onclick="goHome()">Home</div>
 <div class="downbtn" onclick="openUsers()">Users</div>
 <div class="downbtn" onclick="openFriends()">Friends</div>
+<div class="downbtn" onclick="openBank()">Bank</div>
 <div class="downbtn" onclick="openShop()">Shop</div>
 </div>
 
@@ -155,6 +157,7 @@ if(!snap.exists()){
 await set(userRef,{
 senha,
 ticket:0,
+tokecoin:0,
 online:true,
 PFP:0,
 amigos:{},
@@ -180,12 +183,12 @@ dailyTicket();
 
 onValue(ref(db,"usuarios/"+usuarioAtual),(snap)=>{
 const d=snap.val();
-const pfp=d.PFP==1
-? `<img src="https://avatars.githubusercontent.com/u/2505495?v=4"
-style="width:32px;height:32px;border-radius:50%;vertical-align:middle;"> `
-: "";
 
-userInfo.innerHTML=`${pfp}<span class="ticket">🎟 ${d.ticket}</span> ${usuarioAtual}`;
+userInfo.innerHTML=`
+<span class="ticket">🎟 ${d.ticket||0}</span>
+&nbsp;&nbsp;
+<span class="coin">🪙 ${d.tokecoin||0}</span>
+`;
 });
 
 goHome();
@@ -210,7 +213,7 @@ ticket:d.ticket+ganho,
 }
 }
 
-/* DAILY TICKET */
+/* DAILY */
 async function dailyTicket(){
 const hoje=new Date().toDateString();
 if(localStorage.getItem("lastTicket")===hoje) return;
@@ -223,22 +226,50 @@ localStorage.setItem("lastTicket",hoje);
 
 /* HOME */
 window.goHome=function(){
+content.innerHTML=`<h1>Home</h1>`;
+};
+
+/* BANK */
+window.openBank=async function(){
+const d=(await get(ref(db,"usuarios/"+usuarioAtual))).val();
+
 content.innerHTML=`
-<h1>Home</h1>
-<div class="gamesGrid">
-<div class="gameCard">
-<img class="gameIcon" src="https://play-lh.googleusercontent.com/SWTpYqsX9RN2YirCDnAjQ8qsbgn4UrHkRRGsjwuASnHMVqssIvWKzq82mP82y_ffBSE">
-<p>Paper.io</p>
-<button class="playBtn" onclick="window.open('https://games.voodoo.io/paperio2/')">Play</button>
-</div>
+<h2>🏦 Bank</h2>
 
 <div class="gameCard">
-<img class="gameIcon" src="https://upload.wikimedia.org/wikipedia/en/c/ca/Hole.io_logo.jpg">
-<p>Hole.io</p>
-<button class="playBtn" onclick="window.open('https://holeio.com/')">Play</button>
-</div>
+<p>Converter Tickets em TokeCoin</p>
+
+<p>Taxa:</p>
+<p><b>10 🎟 = 1 🪙</b></p>
+
+<br>
+
+<button class="playBtn"
+${d.ticket<10?"disabled":""}
+onclick="converterCoin()">
+Converter
+</button>
+
+<br><br>
+<p>Seus Tickets: 🎟 ${d.ticket}</p>
+<p>Suas Coins: 🪙 ${d.tokecoin||0}</p>
 </div>
 `;
+};
+
+window.converterCoin=async function(){
+const refUser=ref(db,"usuarios/"+usuarioAtual);
+const d=(await get(refUser)).val();
+
+if(d.ticket<10) return alert("Precisa de 10 tickets!");
+
+await update(refUser,{
+ticket:d.ticket-10,
+tokecoin:(d.tokecoin||0)+1
+});
+
+alert("🪙 Conversão feita!");
+openBank();
 };
 
 /* USERS */
@@ -250,17 +281,16 @@ const nome=u.key;
 if(nome===usuarioAtual) return;
 const d=u.val();
 
-const img=d.PFP==1
-? `<img src="https://avatars.githubusercontent.com/u/2505495?v=4" width="40" style="border-radius:50%"><br>`
-:"";
-
 html+=`
 <div class="userCard">
-${img}
 <b>${nome}</b>
-<span class="${d.online?'online':'offline'}">(${d.online?'On':'Off'})</span><br><br>
-<button onclick="addFriend('${nome}')">Adicionar amigo</button><br><br>
-<button onclick="sendGift('${nome}')">🎁 Enviar presente (5 🎟)</button>
+<span class="${d.online?'online':'offline'}">
+(${d.online?'On':'Off'})
+</span><br><br>
+
+<button onclick="addFriend('${nome}')">
+Adicionar amigo
+</button>
 </div>`;
 });
 content.innerHTML=html;
@@ -270,22 +300,6 @@ content.innerHTML=html;
 window.addFriend=async function(nome){
 await set(ref(db,"usuarios/"+usuarioAtual+"/amigos/"+nome),true);
 alert("Amigo adicionado!");
-};
-
-window.sendGift=async function(nome){
-const meRef=ref(db,"usuarios/"+usuarioAtual);
-const toRef=ref(db,"usuarios/"+nome);
-
-const me=(await get(meRef)).val();
-if(me.ticket<5) return alert("Você precisa de 5 tickets!");
-
-const to=(await get(toRef)).val();
-const pend=to.presentes?.pendentes||0;
-
-await update(meRef,{ticket:me.ticket-5});
-await update(toRef,{"presentes/pendentes":pend+1});
-
-alert("🎁 Presente enviado!");
 };
 
 /* FRIENDS */
@@ -301,7 +315,9 @@ const d=(await get(ref(db,"usuarios/"+nome))).val();
 html+=`
 <div class="userCard">
 ${nome}
-<span class="${d.online?'online':'offline'}">(${d.online?'On':'Off'})</span>
+<span class="${d.online?'online':'offline'}">
+(${d.online?'On':'Off'})
+</span>
 </div>`;
 }
 content.innerHTML=html;
@@ -309,32 +325,8 @@ content.innerHTML=html;
 };
 
 /* SHOP */
-window.openShop=async function(){
-const d=(await get(ref(db,"usuarios/"+usuarioAtual))).val();
-
-content.innerHTML=`
-<h2>Shop</h2>
-<div class="gameCard">
-<img class="gameIcon" src="https://avatars.githubusercontent.com/u/2505495?v=4">
-<p>Gatinho na Cama</p>
-<p>Custo: 🎟 1</p>
-<button class="playBtn" ${d.PFP==1?"disabled":""}
-onclick="comprarPFP()">
-${d.PFP==1?"Equipado":"Comprar"}
-</button>
-</div>
-`;
-};
-
-window.comprarPFP=async function(){
-const refUser=ref(db,"usuarios/"+usuarioAtual);
-const d=(await get(refUser)).val();
-
-if(d.ticket<1) return alert("Sem tickets");
-
-await update(refUser,{ticket:d.ticket-1,PFP:1});
-alert("PFP equipado!");
-openShop();
+window.openShop=function(){
+content.innerHTML=`<h2>Shop</h2><p>Em breve...</p>`;
 };
 </script>
 
