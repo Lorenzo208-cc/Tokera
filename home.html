@@ -31,7 +31,7 @@ align-items:center;
 #content{
 padding:20px;
 text-align:center;
-margin-bottom:80px;
+margin-bottom:90px;
 }
 
 /* DOWN BAR */
@@ -59,7 +59,7 @@ border-radius:10px;
 .online{color:#00ff88;}
 .offline{color:#888;}
 
-/* GAMES */
+/* GRID */
 .gamesGrid{
 display:grid;
 grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
@@ -82,11 +82,6 @@ border-radius:6px;
 padding:8px;
 cursor:pointer;
 width:100%;
-}
-
-.playBtn:disabled{
-opacity:.5;
-cursor:not-allowed;
 }
 </style>
 </head>
@@ -139,23 +134,9 @@ else startApp();
 function mostrarLogin(){
 content.innerHTML=`
 <h2>Login</h2>
-
 <input id="nome" placeholder="Usuário"><br><br>
-
 <input id="senha" type="password" placeholder="Senha"><br><br>
-
 <button onclick="login()">Entrar</button>
-
-<p style="
-margin-top:12px;
-font-size:12px;
-color:#aaa;
-max-width:260px;
-margin-left:auto;
-margin-right:auto;
-">
-Se você tiver menos de 10 anos, você precisa de um responsável para ver.
-</p>
 `;
 }
 
@@ -174,6 +155,7 @@ ticket:0,
 tokecoin:0,
 online:true,
 PFP:0,
+roupa:0,
 amigos:{},
 presentes:{pendentes:0}
 });
@@ -192,12 +174,8 @@ const onlineRef=ref(db,"usuarios/"+usuarioAtual+"/online");
 await set(onlineRef,true);
 onDisconnect(onlineRef).set(false);
 
-checkPresentes();
-dailyTicket();
-
 onValue(ref(db,"usuarios/"+usuarioAtual),(snap)=>{
 const d=snap.val();
-
 userInfo.innerHTML=`
 <span class="ticket">🎟 ${d.ticket||0}</span>
 &nbsp;&nbsp;
@@ -208,39 +186,9 @@ userInfo.innerHTML=`
 goHome();
 }
 
-/* PRESENTES */
-async function checkPresentes(){
-const refUser=ref(db,"usuarios/"+usuarioAtual);
-const snap=await get(refUser);
-const d=snap.val();
-
-if(d.presentes?.pendentes>0){
-const qtd=d.presentes.pendentes;
-const ganho=qtd*5;
-
-alert(`🎁 Você recebeu ${qtd} presente(s)!\n+${ganho} tickets`);
-
-await update(refUser,{
-ticket:d.ticket+ganho,
-"presentes/pendentes":0
-});
-}
-}
-
-/* DAILY */
-async function dailyTicket(){
-const hoje=new Date().toDateString();
-if(localStorage.getItem("lastTicket")===hoje) return;
-
-const refUser=ref(db,"usuarios/"+usuarioAtual);
-const snap=await get(refUser);
-await update(refUser,{ticket:(snap.val().ticket||0)+1});
-localStorage.setItem("lastTicket",hoje);
-}
-
 /* HOME */
 window.goHome=function(){
-content.innerHTML=`<h1>Home</h1>`;
+content.innerHTML="<h1>Home</h1>";
 };
 
 /* BANK */
@@ -249,24 +197,11 @@ const d=(await get(ref(db,"usuarios/"+usuarioAtual))).val();
 
 content.innerHTML=`
 <h2>🏦 Bank</h2>
-
 <div class="gameCard">
-<p>Converter Tickets em TokeCoin</p>
-
-<p>Taxa:</p>
 <p><b>10 🎟 = 1 🪙</b></p>
-
-<br>
-
 <button class="playBtn"
 ${d.ticket<10?"disabled":""}
-onclick="converterCoin()">
-Converter
-</button>
-
-<br><br>
-<p>Seus Tickets: 🎟 ${d.ticket}</p>
-<p>Suas Coins: 🪙 ${d.tokecoin||0}</p>
+onclick="converterCoin()">Converter</button>
 </div>
 `;
 };
@@ -274,15 +209,11 @@ Converter
 window.converterCoin=async function(){
 const refUser=ref(db,"usuarios/"+usuarioAtual);
 const d=(await get(refUser)).val();
-
 if(d.ticket<10) return alert("Precisa de 10 tickets!");
-
 await update(refUser,{
 ticket:d.ticket-10,
 tokecoin:(d.tokecoin||0)+1
 });
-
-alert("🪙 Conversão feita!");
 openBank();
 };
 
@@ -294,55 +225,76 @@ snap.forEach(u=>{
 const nome=u.key;
 if(nome===usuarioAtual) return;
 const d=u.val();
-
 html+=`
 <div class="userCard">
 <b>${nome}</b>
 <span class="${d.online?'online':'offline'}">
 (${d.online?'On':'Off'})
-</span><br><br>
-
-<button onclick="addFriend('${nome}')">
-Adicionar amigo
-</button>
+</span>
 </div>`;
 });
 content.innerHTML=html;
 });
-};
-
-window.addFriend=async function(nome){
-await set(ref(db,"usuarios/"+usuarioAtual+"/amigos/"+nome),true);
-alert("Amigo adicionado!");
 };
 
 /* FRIENDS */
 window.openFriends=function(){
-onValue(ref(db,"usuarios/"+usuarioAtual+"/amigos"),async snap=>{
-let html="<h2>Amigos</h2>";
-if(!snap.exists()){
-content.innerHTML=html+"<p>Nenhum amigo</p>";
-return;
-}
-for(const nome in snap.val()){
-const d=(await get(ref(db,"usuarios/"+nome))).val();
-html+=`
-<div class="userCard">
-${nome}
-<span class="${d.online?'online':'offline'}">
-(${d.online?'On':'Off'})
-</span>
-</div>`;
-}
-content.innerHTML=html;
-});
+content.innerHTML="<h2>Amigos</h2>";
 };
 
-/* SHOP */
-window.openShop=function(){
-content.innerHTML=`<h2>Shop</h2><p>Em breve...</p>`;
+/* SHOP COM AVATAR */
+window.openShop=async function(){
+const refUser=ref(db,"usuarios/"+usuarioAtual);
+const d=(await get(refUser)).val();
+const roupa=d.roupa||0;
+
+const roupas={
+1:"./Avatar/Shrek.png",
+2:"./Avatar/Tokera.png",
+3:"./Avatar/Turbo.png"
 };
+
+content.innerHTML=`
+<div style="display:flex;flex-direction:column;align-items:center">
+
+<div style="position:relative;width:200px;height:200px;margin-bottom:20px;">
+<img src="./Avatar/original.png"
+style="width:100%;height:100%;position:absolute;">
+${roupa?`<img src="${roupas[roupa]}"
+style="width:100%;height:100%;position:absolute;">`:""}
+</div>
+
+<div class="gamesGrid">
+
+<div class="gameCard">
+<img src="./Avatar/Shrek.png" class="gameIcon">
+<button class="playBtn" onclick="equipar(1)">Shrek</button>
+</div>
+
+<div class="gameCard">
+<img src="./Avatar/Tokera.png" class="gameIcon">
+<button class="playBtn" onclick="equipar(2)">Tokera</button>
+</div>
+
+<div class="gameCard">
+<img src="./Avatar/Turbo.png" class="gameIcon">
+<button class="playBtn" onclick="equipar(3)">Turbo</button>
+</div>
+
+<div class="gameCard">
+<button class="playBtn" onclick="equipar(0)">Remover</button>
+</div>
+
+</div>
+</div>
+`;
+};
+
+window.equipar=async function(id){
+await update(ref(db,"usuarios/"+usuarioAtual),{roupa:id});
+openShop();
+};
+
 </script>
-
 </body>
 </html>
